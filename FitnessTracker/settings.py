@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-2c79-f#yub(%a^)t(45x8&z^+w&bld&_i2toe276j50b)z@-7+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['sarank.healthtracker.com']
+ALLOWED_HOSTS = ['sarank.pythonanywhere.com']
 
 
 # Application definition

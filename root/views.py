@@ -1,14 +1,51 @@
 import json
-
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-
 from .models import FatLossLog
+from django.contrib.auth.models import User
+from django.contrib.auth import login
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.contrib.auth import logout as auth_logout # Add this import at the top
+def logout_view(request):
+    auth_logout(request)
+    return redirect('fitness:login') # Redirects to your login page
+def signup(request):
+    if request.method == "POST":
+        u_name = request.POST.get("username")
+        email = request.POST.get("email")
+        pass_1 = request.POST.get("password")
+        pass_2 = request.POST.get("confirm_password")
 
+        # 1. Check if passwords match
+        if pass_1 != pass_2:
+            messages.error(request, "Passwords do not match.")
+            return render(request, "registration/signup.html")
 
+        # 2. Check if Email already exists
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "A user with this email already exists.")
+            return render(request, "registration/signup.html")
+            
+        # 3. Check if Username already exists
+        if User.objects.filter(username=u_name).exists():
+            messages.error(request, "Username is already taken.")
+            return render(request, "registration/signup.html")
+
+        # 4. Create the user
+        user = User.objects.create_user(username=u_name, email=email, password=pass_1)
+        user.save()
+        
+        # Log them in immediately and go to dashboard
+        login(request, user)
+        return redirect("fitness:index") 
+
+    return render(request, "registration/signup.html")
+@login_required
 def index(request):
     """Render the main fitness tracker template.
 
@@ -24,30 +61,12 @@ def index(request):
     }
     return render(request, "index.html", context)
 
-
+@login_required
 def get_fitness_data(request):
     if request.method != "GET":
         return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
-    """
-    Return all FatLossLog entries serialised as JSON for front-end graphs
-    and UI components.
-
-    Response shape:
-    {
-        "data": [
-            {
-                "date": "2024-06-01",
-                "goal_completion": true,
-                "weight": 80.5,
-                "waist_size": 34.0,
-                "thigh_size": 22.5,
-                "bmi": 29.6
-            },
-            ...
-        ]
-    }
-    """
-    logs = FatLossLog.objects.all()  # already ordered by -date via Meta
+   
+    logs = FatLossLog.objects.filter(user=request.user)
 
     data = [
         {
@@ -64,7 +83,7 @@ def get_fitness_data(request):
     return JsonResponse({"data": data})
 
 
-@csrf_exempt
+@login_required
 def log_entry(request):
     """Only POST is supported; return 405 explicitly for everything else."""
     if request.method != "POST":
@@ -72,23 +91,6 @@ def log_entry(request):
             {"success": False, "error": "Method not allowed. Use POST."},
             status=405,
         )
-    """
-    Accept a POST request containing a new fitness log entry, validate the
-    fields, persist the record, and return a JSON response.
-
-    Expected POST body (application/json or form-encoded):
-        goal_completion  – "true" / "false" / 1 / 0
-        weight           – float
-        waist_size       – float
-        thigh_size       – float
-
-    Successful response (HTTP 201):
-        {"success": true, "id": <int>, "bmi": <float>, "date": "<iso-date>"}
-
-    Error response (HTTP 400):
-        {"success": false, "errors": {"field": "message", ...}}
-    """
-    # Support both JSON body and standard form-encoded POST
     content_type = request.content_type or ""
     if "application/json" in content_type:
         try:
@@ -141,6 +143,7 @@ def log_entry(request):
 
     # All fields valid — persist to database
     log = FatLossLog.objects.create(
+        user=request.user,
         goal_completion=goal_completion,
         weight=weight,
         waist_size=waist_size,

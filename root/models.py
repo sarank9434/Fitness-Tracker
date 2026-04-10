@@ -1,6 +1,7 @@
 from django.db import models
-
+from FitnessTracker import settings
 class FatLossLog(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=1)
     date = models.DateField(auto_now_add=True)
     goal_completion = models.BooleanField(default=False)
     weight = models.FloatField(help_text="Weight in kg")

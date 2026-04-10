@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-2c79-f#yub(%a^)t(45x8&z^+w&bld&_i2toe276j50b)z@-7+'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['sarank.pythonanywhere.com']
+ALLOWED_HOSTS = ['sarank.pythonanywhere.com', 'localhost']
 
 
 # Application definition
@@ -99,7 +99,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
+AUTH_USER_MODEL = 'auth.User'
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
@@ -116,3 +116,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+LOGIN_REDIRECT_URL = '/'   # Go to dashboard after login
+LOGOUT_REDIRECT_URL = '/accounts/login/' # Go to login page after logout

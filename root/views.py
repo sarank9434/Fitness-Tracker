@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.urls import reverse
-from django.views.decorators.csrf import csrf_exempt
 from .models import FatLossLog
 from django.contrib.auth.models import User
 from django.contrib.auth import login

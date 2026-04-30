@@ -535,7 +535,7 @@
                         </span>
                         Daily Form
                     </h2>
-                    <form id=dailyForm onsubmit=event.preventDefault() novalidate>
+                    <form id=dailyForm novalidate>
                         {% csrf_token %}
                         <div class="goal-toggle-wrapper mb-4">
                             <div class="d-flex align-items-center gap-3">
@@ -741,22 +741,14 @@
             } else {
                 titleEl.textContent = "All-Time Trends";
             }
-
-            // REMOVED: The metaContent definition that was here
-
+            populateStatCards(displayData);
+            populateBMI(displayData);
+            populateTable(displayData);
             destroyCharts();
-            populateStatCards(allFitnessData);
-            populateBMI(allFitnessData);
-            populateTable(allFitnessData);
-
             if (displayData.length) {
                 buildWeightChart(displayData);
                 buildCircumferenceChart(displayData);
                 buildBMIChart(displayData);
-            } else {
-                buildWeightChart([]);
-                buildCircumferenceChart([]);
-                buildBMIChart([]);
             }
         }
         const BMI_MIN = 15;
@@ -794,35 +786,43 @@
         function buildBMIChart(data) { const ctx = document.getElementById("bmiChart").getContext("2d"); const labels = data.map(d => formatDateLabel(d.date)); const fullLabels = data.map(d => formatDateFull(d.date)); const bmis = data.map(d => parseFloat(d.bmi)); const len = data.length; bmiChartInstance = new Chart(ctx, { type: "line", data: { labels, datasets: [{ label: "BMI", data: bmis, borderColor: "#2563eb", backgroundColor: "rgba(37,99,235,0.08)", borderWidth: 2.5, pointBackgroundColor: "#2563eb", pointBorderColor: "#fff", pointBorderWidth: 2, pointRadius: 5, pointHoverRadius: 7, fill: true, tension: 0.35, order: 1, }, { label: "Min Required BMI", data: Array(len).fill(BMI_MIN), borderColor: "#60a5fa", borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, fill: false, tension: 0, order: 2, }, { label: "Max Required BMI", data: Array(len).fill(BMI_MAX), borderColor: "#f87171", borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, fill: false, tension: 0, order: 3, },], }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true, position: "top", align: "end", labels: { usePointStyle: true, pointStyle: "line" }, }, tooltip: { callbacks: { title: items => fullLabels[items[0].dataIndex], label: item => `${item.dataset.label}:${item.parsed.y}`, }, }, }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { min: 14, max: 30, grid: { color: "#f1f5f9" }, ticks: { font: { size: 11 }, stepSize: 2 }, title: { display: true, text: "BMI", color: "#94a3b8", font: { size: 11 } }, }, }, }, }); }
         function renderCurrentDate() { const dateEl = document.getElementById("currentDate"); if (dateEl) { const now = new Date(); const opts = { weekday: "long", year: "numeric", month: "long", day: "numeric" }; dateEl.textContent = now.toLocaleDateString("en-US", opts); } }
         async function loadAndRender() {
-            let data = [];
             try {
                 const res = await fetch(API_DATA_URL, { headers: { "Accept": "application/json" }, });
 
-                // This is what was missing:
                 if (res.url.includes('login') || (res.headers.get('content-type') && res.headers.get('content-type').includes('text/html'))) {
                     window.location.href = "/accounts/login/";
                     return;
                 }
 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                // ... existing fetch code ...
-                const json = await res.json();
-                const raw = Array.isArray(json) ? json : (json.data || []);
 
-                // Store the processed data globally
-                allFitnessData = raw.map(r => ({
-                    date: r.date,
-                    goalCompletion: r.goal_completion ?? r.goalCompletion ?? 0,
-                    weight: parseFloat(r.weight),
-                    waistSize: parseFloat(r.waist_size ?? r.waistSize),
-                    thighSize: parseFloat(r.thigh_size ?? r.thighSize),
-                    bmi: parseFloat(r.bmi),
-                }));
+                const json = await res.json();
+
+                // FIX 1: Define 'raw' from the JSON data key
+                const raw = json.data || [];
+
+                allFitnessData = raw.map(r => {
+                    const goal = (r.goal_completion === true || r.goal_completion === 1) ? 1 : 0;
+                    return {
+                        date: r.date,
+                        goalCompletion: goal,
+                        weight: parseFloat(r.weight) || 0,
+                        waistSize: parseFloat(r.waist_size || r.waistSize) || 0,
+                        thighSize: parseFloat(r.thigh_size || r.thighSize) || 0,
+                        bmi: parseFloat(r.bmi) || 0,
+                    };
+                });
+
                 allFitnessData.sort((a, b) => a.date.localeCompare(b.date));
 
-                updateDashboard(); // New function to handle the actual rendering
-            } catch (err) { data = []; }
-            destroyCharts(); populateStatCards(data); populateBMI(data); populateTable(data); if (data.length) { buildWeightChart(data); buildCircumferenceChart(data); buildBMIChart(data); } else { buildWeightChart([]); buildCircumferenceChart([]); buildBMIChart([]); }
+                // FIX 2: Only call updateDashboard and remove the redundant calls below
+                updateDashboard();
+
+            } catch (err) {
+                console.error("Data load failed:", err);
+                allFitnessData = [];
+                updateDashboard();
+            }
         }
         function getCookie(name) { const match = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/([.$?*|{}()[\]\\/+^])/g, "\\$1") + "=([^;]*)")); return match ? decodeURIComponent(match[1]) : null; }
         function getCSRFToken(form) { const input = form.querySelector("[name=csrfmiddlewaretoken]"); if (input && input.value) return input.value; return getCookie("csrftoken") || ""; }
